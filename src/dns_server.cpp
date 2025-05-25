@@ -23,14 +23,16 @@ void DNS_Server::run() {
 }
 
 void DNS_Server::start_receive() {
-    udp_socket_.async_receive_from(
-        buffer(recv_buffer_), remote_endpoint_,
-        [this](boost::system::error_code ec, std::size_t bytes_recvd) {
+    udp_socket_.async_receive_from
+        (
+            buffer(recv_buffer_), remote_endpoint_,
+            [this](boost::system::error_code ec, std::size_t bytes_recvd
+        ) {
             if (!ec && bytes_recvd > 0) {
                 handle_udp_request(bytes_recvd);
             }
             start_receive();
-        });
+          });
 }
 
 void DNS_Server::start_accept() {
