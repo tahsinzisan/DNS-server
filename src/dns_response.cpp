@@ -1,46 +1,94 @@
-#include "dns_response.h"
-#include "dns_header.h"
-#include "../include/zone_file_reader.h"
+#include <iostream>
 #include <sstream>
-using namespace std;
+#include <arpa/inet.h>
 
-string build_response(const string &query, string ip_address) {
-  ostringstream response;
+std::string build_response(const std::string& query, const std::string& ip_address) {
+    std::ostringstream response;
 
-  // Add DNS Header
-  // append_dns_header(response, query);
-  response.write(query.data(), 2); // Transaction ID
-  response << "\x81\x80";          // Flags (Standard response, no errors)
-  response << "\x00\x01";          // QDCOUNT (1 question)
-  response << "\x00\x01";          // ANCOUNT (1 answer)
-  response << "\x00\x00";          // NSCOUNT (0)
-  response << "\x00\x00";          // ARCOUNT (0)
+    if (query.size() < 12) {
+        std::cerr << "Query too short" << std::endl;
+        return "";
+    }
 
-  // Question Section
-  response << "\xc0\x0c"; // Name (pointer to domain)
-  response << "\x00\x01"; // Type (A record)
-  response << "\x00\x01"; // Class (IN)
+    // Transaction ID (2 bytes)
+    response.write(query.data(), 2);
 
-  // Answer Section
-  response << "\xc0\x0c";         // Name (pointer to domain)
-  response << "\x00\x01";         // Type (A record)
-  response << "\x00\x01";         // Class (IN)
-  response << "\x00\x00\x00\x3c"; // TTL (60 seconds)
-  response << "\x00\x04";         // Data length (IPv4 address)
+    // Flags (2 bytes)
+    if (ip_address.empty()) {
+        // QR=1, Opcode=0, AA=1, TC=0, RD=0, RA=0, Z=0, RCODE=3 (NXDOMAIN)
+        uint16_t flags = htons(0x8183);
+        response.write(reinterpret_cast<const char*>(&flags), 2);
+    } else {
+        // QR=1, Opcode=0, AA=1, TC=0, RD=0, RA=0, Z=0, RCODE=0 (No error)
+        uint16_t flags = htons(0x8180);
+        response.write(reinterpret_cast<const char*>(&flags), 2);
+    }
 
-  
+    // QDCOUNT (1 question)
+    uint16_t qdcount = htons(1);
+    response.write(reinterpret_cast<const char*>(&qdcount), 2);
 
-  if (ip_address.empty()) {
-    ip_address = "0.0.0.0"; // Default IP (e.g., Google DNS)
-  }
+    // ANCOUNT (1 if IP found, else 0)
+    uint16_t ancount = htons(ip_address.empty() ? 0 : 1);
+    response.write(reinterpret_cast<const char*>(&ancount), 2);
 
-  // Add IP address to the response (4-byte IP address)
-  istringstream ip_stream(ip_address);
-  unsigned char ip_bytes[4];
-  char dot;
-  ip_stream >> (int &)ip_bytes[0] >> dot >> (int &)ip_bytes[1] >> dot >>
-      (int &)ip_bytes[2] >> dot >> (int &)ip_bytes[3];
-  response.write(reinterpret_cast<char *>(ip_bytes), 4);
+    // NSCOUNT (0)
+    uint16_t nscount = 0;
+    response.write(reinterpret_cast<const char*>(&nscount), 2);
 
-  return response.str();
+    // ARCOUNT (0)
+    uint16_t arcount = 0;
+    response.write(reinterpret_cast<const char*>(&arcount), 2);
+
+    // QNAME in question section
+    size_t qname_end = 12;
+    while (qname_end < query.size() && query[qname_end] != 0x00) {
+        qname_end++;
+    }
+    if (qname_end >= query.size()) {
+        std::cerr << "Malformed question section" << std::endl;
+        return "";
+    }
+
+    // Copy QNAME + QTYPE (2 bytes) + QCLASS (2 bytes)
+    size_t question_len = (qname_end - 12) + 1 + 4; // labels + zero + QTYPE + QCLASS
+    if (12 + question_len > query.size()) {
+        std::cerr << "Malformed question length" << std::endl;
+        return "";
+    }
+    response.write(query.data() + 12, question_len);
+
+    if (!ip_address.empty()) {
+        // Answer section
+
+        // Use pointer to QNAME in question (offset 12 = 0x0c)
+        char pointer[2] = { static_cast<char>(0xc0), 0x0c };
+        response.write(pointer, 2);
+
+        // TYPE A (0x0001)
+        uint16_t type = htons(1);
+        response.write(reinterpret_cast<const char*>(&type), 2);
+
+        // CLASS IN (0x0001)
+        uint16_t class_in = htons(1);
+        response.write(reinterpret_cast<const char*>(&class_in), 2);
+
+        // TTL (60 seconds)
+        uint32_t ttl = htonl(60);
+        response.write(reinterpret_cast<const char*>(&ttl), 4);
+
+        // RDLENGTH (4 bytes for IPv4)
+        uint16_t rdlength = htons(4);
+        response.write(reinterpret_cast<const char*>(&rdlength), 2);
+
+        // RDATA (IPv4 address)
+        struct in_addr addr;
+        if (inet_pton(AF_INET, ip_address.c_str(), &addr) != 1) {
+            std::cerr << "Invalid IP address: " << ip_address << std::endl;
+            return "";
+        }
+        response.write(reinterpret_cast<const char*>(&addr.s_addr), 4);
+    }
+
+    return response.str();
 }
