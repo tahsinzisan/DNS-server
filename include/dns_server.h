@@ -8,7 +8,7 @@
 
 class DNS_Server {
 public:
-    DNS_Server(boost::asio::io_service& io, short udp_port, short tcp_port);
+DNS_Server(boost::asio::io_context& io, int udp_port, int tcp_port, ZoneFileReader& zone_file_reader);
     void run();
 
 private:
@@ -18,13 +18,16 @@ private:
     void handle_tcp_request(boost::asio::ip::tcp::socket& tcp_socket);
     void send_udp_response(const std::string& response);
     void send_tcp_response(const std::string& response, boost::asio::ip::tcp::socket& tcp_socket);
+    string parse_domain(const std::vector<uint8_t>& request);
+    void print_hex(const string &data);
 
     boost::asio::ip::udp::socket udp_socket_;
     boost::asio::ip::tcp::acceptor tcp_acceptor_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
-    std::vector<char> recv_buffer_{1024};
-    boost::asio::io_service& io_service_;
-    ZoneFileReader zone_file_reader_;
+    std::vector<char> recv_buffer_;
+    
+    boost::asio::io_context& io_service_;
+    ZoneFileReader& zone_file_reader_;
 };
 
 #endif
