@@ -1,12 +1,13 @@
 #include <iostream>
 #include <sstream>
 #include <arpa/inet.h>
+using namespace std;
 
-std::string build_response(const std::string& query, const std::string& ip_address) {
-    std::ostringstream response;
+string build_response(const string& query, const string& ip_address) {
+    ostringstream response;
 
     if (query.size() < 12) {
-        std::cerr << "Query too short" << std::endl;
+        cerr << "Query too short" << endl;
         return "";
     }
 
@@ -40,20 +41,20 @@ std::string build_response(const std::string& query, const std::string& ip_addre
     uint16_t arcount = 0;
     response.write(reinterpret_cast<const char*>(&arcount), 2);
 
-    // QNAME in question section
+    // Find end of QNAME in question section
     size_t qname_end = 12;
     while (qname_end < query.size() && query[qname_end] != 0x00) {
         qname_end++;
     }
     if (qname_end >= query.size()) {
-        std::cerr << "Malformed question section" << std::endl;
+        cerr << "Malformed question section" << endl;
         return "";
     }
 
     // Copy QNAME + QTYPE (2 bytes) + QCLASS (2 bytes)
     size_t question_len = (qname_end - 12) + 1 + 4; // labels + zero + QTYPE + QCLASS
     if (12 + question_len > query.size()) {
-        std::cerr << "Malformed question length" << std::endl;
+        cerr << "Malformed question length" << endl;
         return "";
     }
     response.write(query.data() + 12, question_len);
@@ -84,7 +85,7 @@ std::string build_response(const std::string& query, const std::string& ip_addre
         // RDATA (IPv4 address)
         struct in_addr addr;
         if (inet_pton(AF_INET, ip_address.c_str(), &addr) != 1) {
-            std::cerr << "Invalid IP address: " << ip_address << std::endl;
+            cerr << "Invalid IP address: " << ip_address << endl;
             return "";
         }
         response.write(reinterpret_cast<const char*>(&addr.s_addr), 4);
