@@ -4,6 +4,7 @@
 #include <string>
 using namespace std; 
 
-string build_response(const string& query, string ip_address);
+string build_response(const string& query, const string& ip_address);
+
 
 #endif 
