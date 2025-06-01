@@ -1,7 +1,9 @@
-
 CXX = g++
-CXXFLAGS = -g -Wall -Werror -I include
-LDFLAGS = -lboost_system
+
+CXXFLAGS = -std=c++17 -g -Wall -Werror -I include -I /opt/homebrew/opt/boost/include
+
+
+LDFLAGS = -L /opt/homebrew/opt/boost/lib -lboost_system
 
 SRC_DIR = src
 BUILD_DIR = build
