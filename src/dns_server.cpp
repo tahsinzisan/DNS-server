@@ -1,4 +1,4 @@
-#include "dns_server.h"
+#include "../include/dns_server.h"
 #include "../include/split_dns.h"
 #include "../include/dns_response.h"
 #include <boost/asio.hpp>
