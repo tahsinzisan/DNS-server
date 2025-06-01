@@ -1,4 +1,4 @@
-#include "zone_file_reader.h"
+#include "../include/zone_file_reader.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
